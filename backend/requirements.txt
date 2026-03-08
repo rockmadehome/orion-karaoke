@@ -1,0 +1,24 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+sqlmodel>=0.0.19
+alembic>=1.13.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+
+# Video pipeline
+yt-dlp>=2024.4.9
+ffmpeg-python>=0.2.0
+
+# Stem separation — MDX-Net via ONNX (fast on CPU, ~30-90s/song)
+audio-separator[cpu]>=0.28.0
+# spleeter is abandoned (requires numpy<1.19, incompatible with Python 3.10+)
+
+# ffmpeg fallback binary with libass (used when system ffmpeg lacks --enable-libass, e.g. macOS Homebrew)
+imageio-ffmpeg>=0.5.0
+
+# Transcription
+faster-whisper>=1.0.0
+
+# Auth (table exists, endpoints off by default)
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0

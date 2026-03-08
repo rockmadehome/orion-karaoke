@@ -1,0 +1,6 @@
+# Install AFTER requirements.txt
+# pip install -r requirements.txt -r requirements-rocm.txt
+--extra-index-url https://download.pytorch.org/whl/rocm6.0
+torch>=2.2.0+rocm6.0
+torchaudio>=2.2.0+rocm6.0
+tensorflow-rocm>=2.14.0

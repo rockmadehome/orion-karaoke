@@ -1,0 +1,19 @@
+services:
+  orion:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.rocm
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+    env_file:
+      - .env
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped

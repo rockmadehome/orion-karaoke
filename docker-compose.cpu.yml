@@ -1,0 +1,12 @@
+services:
+  orion:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cpu
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+    env_file:
+      - .env
+    restart: unless-stopped

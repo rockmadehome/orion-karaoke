@@ -1,0 +1,6 @@
+# Install AFTER requirements.txt
+# pip install -r requirements.txt -r requirements-cuda.txt
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch>=2.2.0+cu121
+torchaudio>=2.2.0+cu121
+tensorflow[and-cuda]>=2.16.0

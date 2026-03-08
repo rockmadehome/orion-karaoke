@@ -1,0 +1,32 @@
+# Stage 1: Build React frontend
+FROM node:20-slim AS node-builder
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python ROCm runtime
+FROM rocm/pytorch:rocm6.0_ubuntu22.04_py3.10_pytorch_2.1.1
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY backend/requirements.txt backend/requirements-rocm.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-rocm.txt
+
+COPY backend/ ./
+COPY --from=node-builder /frontend/dist ./static/
+
+RUN mkdir -p storage temp
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
