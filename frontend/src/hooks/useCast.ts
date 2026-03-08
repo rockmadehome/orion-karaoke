@@ -40,8 +40,23 @@ export function useCast() {
   const initialized = useRef(false)
 
   useEffect(() => {
+    // Handle race condition: if the SDK already loaded and called the callback
+    // before this hook mounted, initialize immediately.
+    if (window.cast?.framework && !initialized.current) {
+      initializeCast()
+      return
+    }
+
+    // Otherwise register the callback for when the SDK finishes loading.
+    const prev = window.__onGCastApiAvailable
     window.__onGCastApiAvailable = (ok: boolean) => {
-      if (!ok || initialized.current) return
+      prev?.(ok)
+      if (!ok) return
+      initializeCast()
+    }
+
+    function initializeCast() {
+      if (initialized.current) return
       initialized.current = true
 
       const ctx = window.cast!.framework.CastContext.getInstance()

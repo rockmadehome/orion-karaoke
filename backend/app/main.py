@@ -161,4 +161,17 @@ async def _handle_ws_message(message: dict) -> None:
 # Serve React SPA — must be last, after all API routes
 _static_dir = Path(__file__).parent.parent / "static"
 if _static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="static")
+    # Mount /assets (Vite build output: JS, CSS, chunks)
+    _assets_dir = _static_dir / "assets"
+    if _assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    # Catch-all: serve real files if they exist, otherwise return index.html
+    # so React Router can handle client-side navigation and deep-link refreshes.
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        candidate = (_static_dir / full_path).resolve()
+        # Security: prevent path traversal outside static dir
+        if candidate.is_file() and candidate.is_relative_to(_static_dir.resolve()):
+            return FileResponse(str(candidate))
+        return FileResponse(str(_static_dir / "index.html"))

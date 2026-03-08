@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../store'
 import { api } from '../api/client'
 
-const WS_URL = `ws://${window.location.host}/ws`
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
 const MAX_RETRIES = 10
 const BASE_DELAY = 100
 

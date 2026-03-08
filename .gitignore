@@ -18,3 +18,4 @@ build/
 .DS_Store
 *.md
 */node_modules/
+backend/*.db*
