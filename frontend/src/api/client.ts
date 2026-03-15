@@ -66,8 +66,17 @@ export interface AppSettings {
   separator_model: string
   transcriber_backend: string
   whisper_model_size: string
+  whisper_language: string
   hardware_backend: string
   auth_enabled: boolean
+  subtitle_active_color: string
+  subtitle_inactive_color: string
+  subtitle_font_size: number
+  subtitle_max_line_chars: number
+  subtitle_post_hold_s: number
+  subtitle_pause_cue_break_s: number
+  subtitle_anticipation_threshold_s: number
+  subtitle_anticipation_s: number
 }
 
 // --- Jobs ---

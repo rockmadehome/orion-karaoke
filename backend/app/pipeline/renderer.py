@@ -110,14 +110,12 @@ def _seconds_to_ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:05.2f}"
 
 
-# Pause longer than this between consecutive lines → split into separate cues
+# These are now read from settings at call time (see _build_cues).
+# Kept as module-level fallbacks only for unit tests that bypass settings.
 _PAUSE_CUE_BREAK_S = 0.5
-# Max seconds a cue stays visible after the last word finishes
 _POST_HOLD_S = 1.5
-# Gap longer than this triggers "anticipation" display for the next cue
-_ANTICIPATION_THRESHOLD_S = 3.0
-# How early to show the next cue before its first word (reader prep time)
-_ANTICIPATION_S = 2.5
+_ANTICIPATION_THRESHOLD_S = 6.0
+_ANTICIPATION_S = 2.0
 
 
 def _build_cue_text(group: list[list[WordTimestamp]], cue_start: float) -> str:
@@ -145,14 +143,15 @@ def _build_cue_text(group: list[list[WordTimestamp]], cue_start: float) -> str:
 
 
 def _wrap_words(words: list[WordTimestamp], max_chars: int) -> list[list[WordTimestamp]]:
-    """Group words into lines respecting max_chars. Returns list of lines."""
+    """Group words into lines respecting max_chars and force_break boundaries."""
     lines: list[list[WordTimestamp]] = []
     current_line: list[WordTimestamp] = []
     current_len = 0
 
     for word in words:
         word_len = len(word.text) + 1  # +1 for space
-        if current_line and current_len + word_len > max_chars:
+        # Hard break: LRC phrase boundary or line too long
+        if current_line and (word.force_break or current_len + word_len > max_chars):
             lines.append(current_line)
             current_line = [word]
             current_len = word_len
@@ -171,13 +170,17 @@ def _build_cues(words: list[WordTimestamp], max_chars: int) -> list[tuple[float,
     Build ASS dialogue cue entries from a flat list of words.
 
     Pause behaviour:
-    - Lines separated by >= _PAUSE_CUE_BREAK_S become independent cues.
-    - Each cue disappears at most _POST_HOLD_S after its last word (no lingering
-      during long solos / instrumental breaks).
-    - If the gap before a cue is >= _ANTICIPATION_THRESHOLD_S, the cue appears
-      _ANTICIPATION_S seconds early (greyed-out pre-read so the singer is ready).
-      The silent gap is filled with blank \\kf tags in _build_cue_text.
+    - Lines separated by >= settings.SUBTITLE_PAUSE_CUE_BREAK_S become independent cues.
+    - Each cue disappears at most settings.SUBTITLE_POST_HOLD_S after its last word.
+    - If the gap before a cue is >= settings.SUBTITLE_ANTICIPATION_THRESHOLD_S, the cue
+      appears settings.SUBTITLE_ANTICIPATION_S seconds early (greyed-out pre-read).
+      The silent gap is filled with silent \\kf tags in _build_cue_text.
     """
+    pause_break = settings.SUBTITLE_PAUSE_CUE_BREAK_S
+    post_hold = settings.SUBTITLE_POST_HOLD_S
+    anticipation_threshold = settings.SUBTITLE_ANTICIPATION_THRESHOLD_S
+    anticipation_s = settings.SUBTITLE_ANTICIPATION_S
+
     lines = _wrap_words(words, max_chars)
     cues: list[tuple[float, float, str]] = []
     prev_last_word_end: float = 0.0
@@ -187,10 +190,11 @@ def _build_cues(words: list[WordTimestamp], max_chars: int) -> list[tuple[float,
         group = [lines[i]]
         i += 1
 
-        # Attempt to add a second line — only when the gap is small (no natural pause)
+        # Attempt to add a second line — only when the gap is small AND no hard phrase break
         if i < len(lines):
             gap = lines[i][0].start - group[-1][-1].end
-            if gap < _PAUSE_CUE_BREAK_S:
+            next_line_is_forced = lines[i][0].force_break
+            if gap < pause_break and not next_line_is_forced:
                 group.append(lines[i])
                 i += 1
 
@@ -199,21 +203,21 @@ def _build_cues(words: list[WordTimestamp], max_chars: int) -> list[tuple[float,
 
         # --- cue start: anticipation if there's a long gap from previous content ---
         gap_from_prev = first_word_start - prev_last_word_end
-        if cues and gap_from_prev >= _ANTICIPATION_THRESHOLD_S:
+        if cues and gap_from_prev >= anticipation_threshold:
             # Show cue early but never before the previous cue ends
-            cue_start = max(cues[-1][1] + 0.05, first_word_start - _ANTICIPATION_S)
+            cue_start = max(cues[-1][1] + 0.05, first_word_start - anticipation_s)
         else:
             cue_start = first_word_start
 
         # --- cue end: disappear soon after last word, don't linger into solos ---
-        cue_end = last_word_end + _POST_HOLD_S
+        cue_end = last_word_end + post_hold
 
         # Cap against next cue's start (accounting for its potential early start)
         if i < len(lines):
             next_first_word_start = lines[i][0].start
             gap_to_next = next_first_word_start - last_word_end
-            if gap_to_next >= _ANTICIPATION_THRESHOLD_S:
-                next_cue_start = next_first_word_start - _ANTICIPATION_S
+            if gap_to_next >= anticipation_threshold:
+                next_cue_start = next_first_word_start - anticipation_s
             else:
                 next_cue_start = next_first_word_start
             cue_end = min(cue_end, next_cue_start - 0.1)

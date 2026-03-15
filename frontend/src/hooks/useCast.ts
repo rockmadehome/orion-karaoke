@@ -9,6 +9,9 @@ declare global {
             setOptions(opts: object): void
             requestSession(): Promise<void>
             getCurrentSession(): { loadMedia(req: object): Promise<void> } | null
+            getCastState(): string
+            addEventListener(type: string, handler: () => void): void
+            removeEventListener(type: string, handler: () => void): void
           }
         }
         RemotePlayerController: new (player: unknown) => {
@@ -65,18 +68,18 @@ export function useCast() {
         autoJoinPolicy: 'origin_scoped',
       })
 
-      const player = new window.cast!.framework.RemotePlayer()
-      const controller = new window.cast!.framework.RemotePlayerController(player)
-
-      controller.addEventListener(
+      // Listen on the CastContext (not RemotePlayerController) for cast state changes.
+      const onCastStateChanged = () => {
+        const s = ctx.getCastState()
+        setIsCasting(s === window.cast?.framework.CastState.CONNECTED)
+      }
+      ctx.addEventListener(
         window.cast!.framework.CastContextEventType.CAST_STATE_CHANGED,
-        () => {
-          const state = ctx as unknown as { getCastState(): string }
-          const s = state.getCastState?.()
-          setIsCasting(s === window.cast?.framework.CastState.CONNECTED)
-        },
+        onCastStateChanged,
       )
 
+      // Sync initial state in case a session is already active
+      onCastStateChanged()
       setIsAvailable(true)
     }
   }, [])

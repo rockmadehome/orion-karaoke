@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.services import get_stem_separator, get_transcriber, get_video_provider
 from app.domain.models.song import Song
 from app.pipeline.cleanup import delete_job_temp
+from app.pipeline.corrector import apply_corrections
 from app.pipeline.renderer import Renderer
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,9 @@ logger = logging.getLogger(__name__)
 # Progress checkpoints per stage (cumulative %)
 _STAGE_PROGRESS = {
     "downloading": 10,
-    "separating": 40,
-    "transcribing": 70,
+    "separating": 38,
+    "transcribing": 65,
+    "correcting": 70,
     "rendering": 95,
     "finalizing": 100,
 }
@@ -58,17 +60,100 @@ async def run_pipeline(
         stems = await separator.separate(media.audio_path, temp_dir)
         await progress_callback("separating", _STAGE_PROGRESS["separating"])
 
-        # Stage 3: Transcription
-        await progress_callback("transcribing", 45)
+        # Stage 3: Fetch lyrics early — used both as Whisper initial_prompt and for correction
+        lyrics = None
+        initial_prompt = None
+        if settings.LRCLIB_ENABLED:
+            from app.adapters.lyrics.syncedlyrics_provider import SyncedLyricsProvider
+            lyrics_provider = SyncedLyricsProvider()
+            lyrics = await lyrics_provider.fetch(title=media.title, artist=media.artist)
+
+            # Shazam fallback: handles videos with garbage or missing title metadata
+            if not lyrics.found and settings.SHAZAM_ENABLED:
+                from app.adapters.lyrics.shazam_id import identify_song
+                shazam_result = await identify_song(media.audio_path)
+                if shazam_result:
+                    lyrics = await lyrics_provider.fetch(
+                        title=shazam_result.title,
+                        artist=shazam_result.artist,
+                    )
+
+            if lyrics and lyrics.found:
+                raw = (
+                    " ".join(line.text for line in lyrics.synced_lines)
+                    if lyrics.synced_lines
+                    else (lyrics.plain_text or "")
+                )
+                initial_prompt = raw[:500]
+                logger.info(
+                    "Lyrics hint ready for Whisper initial_prompt (%d chars)", len(initial_prompt)
+                )
+
+        # Stage 4: Transcription (guided by lyrics initial_prompt when available)
+        await progress_callback("transcribing", 42)
         transcriber = get_transcriber()
-        transcript = await transcriber.transcribe(stems.vocals_path)
+        transcript = await transcriber.transcribe(stems.vocals_path, initial_prompt=initial_prompt)
         await progress_callback("transcribing", _STAGE_PROGRESS["transcribing"])
 
-        # Stage 4: Render
+        # Stage 5: Lyrics correction (LRCLib synced → deterministic; plain text → Gemini)
+        await progress_callback("correcting", 66)
+        if lyrics is not None and lyrics.found:
+            llm_key = settings.LYRICS_LLM_API_KEY.get_secret_value()
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "[CORRECTION] Whisper transcript before correction (%d words):\n%s",
+                    len(transcript.words),
+                    " / ".join(
+                        f"{w.start:.2f}-{w.end:.2f} {w.text!r}"
+                        for w in transcript.words
+                    ),
+                )
+                if lyrics.synced_lines:
+                    logger.debug(
+                        "[CORRECTION] LRCLib synced lyrics (%d lines):\n%s",
+                        len(lyrics.synced_lines),
+                        "\n".join(f"  [{l.start:.2f}] {l.text}" for l in lyrics.synced_lines),
+                    )
+                elif lyrics.plain_text:
+                    logger.debug(
+                        "[CORRECTION] LRCLib plain lyrics (no timestamps):\n%s",
+                        lyrics.plain_text,
+                    )
+
+            transcript_before = transcript
+            transcript = await apply_corrections(transcript, lyrics, llm_key)
+
+            if logger.isEnabledFor(logging.DEBUG):
+                before_words = [w.text for w in transcript_before.words]
+                after_words = [w.text for w in transcript.words]
+                changes = [
+                    f"  [{i}] {b!r} → {a!r}"
+                    for i, (b, a) in enumerate(zip(before_words, after_words))
+                    if b != a
+                ]
+                if changes:
+                    logger.debug(
+                        "[CORRECTION] Changed %d/%d words:\n%s",
+                        len(changes),
+                        len(before_words),
+                        "\n".join(changes),
+                    )
+                else:
+                    logger.debug("[CORRECTION] No words changed")
+        await progress_callback("correcting", _STAGE_PROGRESS["correcting"])
+
+        # Stage 5: Render
         await progress_callback("rendering", 72)
         renderer = Renderer()
         ass_path = temp_dir / "subtitles.ass"
         renderer.build_ass_file(transcript, ass_path)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[ASS] Generated subtitle file:\n%s",
+                ass_path.read_text(encoding="utf-8"),
+            )
 
         output_filename = f"{job_id}.mp4"
         output_path = temp_dir / output_filename
@@ -80,7 +165,7 @@ async def run_pipeline(
         )
         await progress_callback("rendering", _STAGE_PROGRESS["rendering"])
 
-        # Stage 5: Finalize — move to storage before cleanup
+        # Stage 6: Finalize — move to storage before cleanup
         await progress_callback("finalizing", 97)
         settings.STORAGE_PATH.mkdir(parents=True, exist_ok=True)
         final_video_path = settings.STORAGE_PATH / output_filename

@@ -5,6 +5,7 @@ import { useStore } from './store'
 import QueuePage from './features/queue'
 import LibraryPage from './features/library'
 import PlayerPage from './features/player/PlayerPage'
+import SettingsPage from './features/settings'
 import { Wifi, WifiOff } from 'lucide-react'
 
 function WsIndicator() {
@@ -47,6 +48,14 @@ function Layout({ children }: { children: React.ReactNode }) {
           >
             Player
           </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }
+          >
+            Settings
+          </NavLink>
         </nav>
         <div className="ml-auto">
           <WsIndicator />
@@ -78,6 +87,14 @@ function AppRoutes() {
         }
       />
       <Route path="/player" element={<PlayerPage />} />
+      <Route
+        path="/settings"
+        element={
+          <Layout>
+            <SettingsPage />
+          </Layout>
+        }
+      />
     </Routes>
   )
 }

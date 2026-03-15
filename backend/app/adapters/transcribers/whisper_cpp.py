@@ -14,7 +14,7 @@ class WhisperCppTranscriber(Transcriber):
     def backend_name(self) -> str:
         return "whisper_cpp"
 
-    async def transcribe(self, audio_path: Path) -> TranscriptResult:
+    async def transcribe(self, audio_path: Path, initial_prompt: str | None = None) -> TranscriptResult:
         raise NotImplementedError(
             "whisper.cpp transcriber is not yet implemented. "
             "Set TRANSCRIBER_BACKEND=faster_whisper in your .env to use the default backend. "

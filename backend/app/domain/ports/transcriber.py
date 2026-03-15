@@ -7,8 +7,9 @@ from typing import Optional
 @dataclass
 class WordTimestamp:
     text: str
-    start: float   # seconds
-    end: float     # seconds
+    start: float       # seconds
+    end: float         # seconds
+    force_break: bool = False  # True on the first word of a new LRC phrase
 
 
 @dataclass
@@ -19,8 +20,11 @@ class TranscriptResult:
 
 class Transcriber(ABC):
     @abstractmethod
-    async def transcribe(self, audio_path: Path) -> TranscriptResult:
-        """Transcribe audio with word-level timestamps. Auto-detects language."""
+    async def transcribe(self, audio_path: Path, initial_prompt: str | None = None) -> TranscriptResult:
+        """Transcribe audio with word-level timestamps. Auto-detects language.
+
+        initial_prompt: optional text to bias the decoder vocabulary (e.g. song lyrics).
+        """
         ...
 
     @property

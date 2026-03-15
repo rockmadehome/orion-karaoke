@@ -33,12 +33,12 @@ class FasterWhisperTranscriber(Transcriber):
     def backend_name(self) -> str:
         return "faster_whisper"
 
-    async def transcribe(self, audio_path: Path) -> TranscriptResult:
+    async def transcribe(self, audio_path: Path, initial_prompt: str | None = None) -> TranscriptResult:
         return await asyncio.get_event_loop().run_in_executor(
-            None, self._transcribe_sync, audio_path
+            None, self._transcribe_sync, audio_path, initial_prompt
         )
 
-    def _transcribe_sync(self, audio_path: Path) -> TranscriptResult:
+    def _transcribe_sync(self, audio_path: Path, initial_prompt: str | None = None) -> TranscriptResult:
         from faster_whisper import WhisperModel
 
         if self._model is None:
@@ -63,8 +63,22 @@ class FasterWhisperTranscriber(Transcriber):
             language=language_hint,
             task="transcribe",
             beam_size=5,
-            vad_filter=True,       # skip silent / instrumental sections
-            vad_parameters={"min_silence_duration_ms": 500},
+            # VAD: only skip truly silent gaps (>= 2 s). Shorter pauses in singing
+            # (breath, instrumental fill) should NOT be cut — Whisper can hallucinate
+            # or drop those segments entirely when gaps are too small.
+            vad_filter=True,
+            vad_parameters={
+                "min_silence_duration_ms": 2000,
+                "speech_pad_ms": 400,
+            },
+            # Very permissive: almost never mark a segment as non-speech.
+            # Music segments with low SNR still contain lyrics Whisper can read.
+            log_prob_threshold=-2.0,
+            no_speech_threshold=0.95,
+            # condition_on_previous_text helps Whisper chain context across segments
+            # to avoid hallucinated repetitions on tricky passages.
+            condition_on_previous_text=True,
+            **({"initial_prompt": initial_prompt} if initial_prompt else {}),
         )
         logger.info(
             "Language: %s (probability=%.2f)",

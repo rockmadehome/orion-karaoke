@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { NavLink } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -15,17 +15,32 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '../../components/ui/sheet'
-import { ArrowLeft, SkipForward, Cast, List } from 'lucide-react'
+import { ArrowLeft, SkipForward, Cast, Tv2, List, Play, Pause } from 'lucide-react'
 
 export default function PlayerPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [controlsVisible, setControlsVisible] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { send } = useWebSocket()
-  const { isAvailable: castAvailable, castVideo } = useCast()
+  const { isAvailable: castAvailable, isCasting, castVideo } = useCast()
 
   const playback = useStore((s) => s.playback)
   const currentSong = playback.current_song
+
+  // Sync isPlaying with actual video state
+  useEffect(() => {
+    const vid = videoRef.current
+    if (!vid) return
+    const onPlay = () => setIsPlaying(true)
+    const onPause = () => setIsPlaying(false)
+    vid.addEventListener('play', onPlay)
+    vid.addEventListener('pause', onPause)
+    return () => {
+      vid.removeEventListener('play', onPlay)
+      vid.removeEventListener('pause', onPause)
+    }
+  }, [])
 
   // Load video source whenever current song changes
   useEffect(() => {
@@ -35,21 +50,31 @@ export default function PlayerPage() {
     vid.play().catch(() => {})
   }, [currentSong?.queue_item_id])
 
-  function showControls() {
+  const showControls = useCallback(() => {
     setControlsVisible(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)
     hideTimer.current = setTimeout(() => setControlsVisible(false), 3000)
-  }
+  }, [])
 
   useEffect(() => {
     showControls()
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
-  }, [])
+  }, [showControls])
 
   function handleEnded() {
     send({ type: 'playback.next' })
+  }
+
+  function handleTogglePlay() {
+    const vid = videoRef.current
+    if (!vid) return
+    if (vid.paused) {
+      vid.play().catch(() => {})
+    } else {
+      vid.pause()
+    }
   }
 
   async function handleSkip() {
@@ -63,7 +88,11 @@ export default function PlayerPage() {
   async function handleCast() {
     if (!currentSong?.video_path) return
     const fullUrl = `${window.location.origin}${api.storageUrl(currentSong.video_path)}`
-    await castVideo(fullUrl, currentSong.title ?? undefined)
+    try {
+      await castVideo(fullUrl, currentSong.title ?? undefined)
+    } catch {
+      toast.error('Could not connect to Chromecast. Make sure you are using Chrome and both devices are on the same Wi-Fi network.')
+    }
   }
 
   return (
@@ -101,11 +130,36 @@ export default function PlayerPage() {
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </NavLink>
-              <span className="text-white font-semibold text-sm ml-1">Orion Karaoke</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-white font-semibold text-sm truncate block">
+                  {currentSong?.title ?? 'Orion Karaoke'}
+                </span>
+                {currentSong?.artist && (
+                  <span className="text-white/60 text-xs truncate block">{currentSong.artist}</span>
+                )}
+              </div>
+              {isCasting && (
+                <span className="text-amber-400 text-xs font-medium flex items-center gap-1">
+                  <Tv2 className="h-3.5 w-3.5" />
+                  Casting
+                </span>
+              )}
             </div>
 
             {/* Bottom bar */}
             <div className="absolute bottom-0 inset-x-0 flex items-center gap-3 p-4 bg-linear-to-t from-black/70 to-transparent pointer-events-auto">
+              {/* Play / Pause */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:text-white hover:bg-white/20"
+                onClick={handleTogglePlay}
+                disabled={!currentSong}
+              >
+                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+              </Button>
+
+              {/* Skip */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -115,14 +169,16 @@ export default function PlayerPage() {
                 <SkipForward className="h-5 w-5" />
               </Button>
 
+              {/* Cast */}
               {castAvailable && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-white hover:text-white hover:bg-white/20"
+                  className={isCasting ? 'text-amber-400 hover:text-amber-300 hover:bg-white/20' : 'text-white hover:text-white hover:bg-white/20'}
                   onClick={handleCast}
+                  title={isCasting ? 'Currently casting' : 'Cast to TV'}
                 >
-                  <Cast className="h-5 w-5" />
+                  {isCasting ? <Tv2 className="h-5 w-5" /> : <Cast className="h-5 w-5" />}
                 </Button>
               )}
 

@@ -5,6 +5,8 @@ from sqlmodel import Session, func, select
 
 from app.core.config import settings
 from app.core.database import get_session
+from app.domain.models.job import ProcessingJob
+from app.domain.models.playback import PlaybackQueueItem
 from app.domain.models.song import Song, SongListRead, SongRead
 
 router = APIRouter(prefix="/songs", tags=["songs"])
@@ -57,6 +59,22 @@ def delete_song(song_id: str, session: Session = Depends(get_session)):
     _remove_file(settings.STORAGE_PATH / song.video_path)
     if song.thumbnail_path:
         _remove_file(settings.STORAGE_PATH / song.thumbnail_path)
+
+    # Delete dependent rows first to avoid FK constraint errors.
+    # playback_queue entries referencing this song
+    queue_items = session.exec(
+        select(PlaybackQueueItem).where(PlaybackQueueItem.song_id == song_id)
+    ).all()
+    for item in queue_items:
+        session.delete(item)
+
+    # processing_jobs that produced / reference this song
+    jobs = session.exec(
+        select(ProcessingJob).where(ProcessingJob.song_id == song_id)
+    ).all()
+    for job in jobs:
+        job.song_id = None  # type: ignore[assignment]
+        session.add(job)
 
     session.delete(song)
     session.commit()
