@@ -197,7 +197,7 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
 - [ ] Logo/Branding de la sala
 
 ## Pendientes — Storage (Multi-DB)
-- [ ] SQLite adapter (por defecto)
+- [x] SQLite adapter (por defecto) — better-sqlite3, implementación completa con tests de integración
 - [ ] PostgreSQL adapter
 - [ ] MongoDB adapter
 - [ ] MySQL adapter
