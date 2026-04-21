@@ -8,42 +8,46 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
 - [x] README.md con especificaciones completas.
 - [x] Arquitectura hexagonal definida.
 - [x] Estructura de directorios propuesta.
+- [x] **Todos los Ports interfaces definidos** (YouTubeAdapterPort, AudioSeparationPort, LyricsRecognitionPort, KaraokeGeneratorPort, PlaybackPort, PlaylistPort, AuthCodePort, LocalizationPort, StoragePort)
+- [x] **Todos los Domain Entities implementados** (KaraokeTrack, Playlist, ProcessingJob, UserSession, Role, GPUInfo)
+- [x] **Todos los Services core implementados** (GPUManager, WorkerManager, QueueManager, AuthManager)
+- [x] **Tests unitarios básicos creados** (GPUManager, AuthManager)
 
 ## Pendientes — Core Architecture (Ports)
-- [ ] **YouTubeAdapterPort** (interface)
+- [x] **YouTubeAdapterPort** (interface)
   - downloadVideo(url: string): Promise<DownloadResult>
   - getVideoInfo(url: string): Promise<VideoInfo>
-- [ ] **AudioSeparationPort** (interface)
+- [x] **AudioSeparationPort** (interface)
   - separateVocals(audioPath: string): Promise<string>
   - separateInstrumentals(audioPath: string): Promise<string>
-- [ ] **LyricsRecognitionPort** (interface)
+- [x] **LyricsRecognitionPort** (interface)
   - recognizeLanguage(audioPath: string): Promise<string>
   - extractLyricsWithTimestamps(audioPath: string, language: string): Promise<LyricsWithTimestamps>
-- [ ] **KaraokeGeneratorPort** (interface)
+- [x] **KaraokeGeneratorPort** (interface)
   - generateKaraoke(videoPath: string, vocalPath: string, lyrics: LyricsWithTimestamps): Promise<string>
-- [ ] **PlaybackPort** (interface)
+- [x] **PlaybackPort** (interface)
   - play(trackId: string): Promise<void>
   - pause(): Promise<void>
   - stop(): Promise<void>
   - seek(time: number): Promise<void>
   - getCurrentTime(): Promise<number>
-- [ ] **PlaylistPort** (interface)
+- [x] **PlaylistPort** (interface)
   - addSong(songUrl: string): Promise<Song>
   - removeSong(songId: string): Promise<void>
   - getCurrentSong(): Promise<Song | null>
   - playNext(): Promise<void>
   - playPrev(): Promise<void>
-- [ ] **AuthCodePort** (interface)
+- [x] **AuthCodePort** (interface)
   - validateCode(code: string): Promise<AuthResult>
   - generateVisitCode(duration: DurationType): Promise<string>
   - generateMasterCode(): Promise<string>
   - refreshVisitCode(): Promise<string>
   - isCodeExpired(code: string): Promise<boolean>
-- [ ] **LocalizationPort** (interface)
+- [x] **LocalizationPort** (interface)
   - getTranslations(lang: string): Promise<Translations>
   - getCurrentLang(): Promise<string>
   - setLang(lang: string): Promise<void>
-- [ ] **StoragePort** (interface)
+- [x] **StoragePort** (interface)
   - saveKaraokeVideo(path: string, metadata: KaraokeMetadata): Promise<string>
   - getKaraokeVideo(id: string): Promise<string>
   - listKaraokeVideos(): Promise<KaraokeVideo[]>
@@ -53,7 +57,7 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
   - updateVideoMetadata(id: string, metadata: KaraokeMetadata): Promise<void>
 
 ## Pendientes — Core Architecture (Domain)
-- [ ] **Entity: KaraokeTrack**
+- [x] **Entity: KaraokeTrack**
   - id: string
   - youtubeUrl: string
   - videoPath: string
@@ -66,12 +70,12 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
   - createdAt: Date
   - completedAt?: Date
   - error?: string
-- [ ] **Entity: Playlist**
+- [x] **Entity: Playlist**
   - id: string
   - name: string
   - songs: KaraokeTrack[]
   - createdAt: Date
-- [ ] **Entity: ProcessingJob**
+- [x] **Entity: ProcessingJob**
   - id: string
   - type: JobType (karaoke_conversion, lyrics_sync)
   - status: JobStatus (pending/running/completed/failed/cancelled)
@@ -81,7 +85,7 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
   - createdAt: Date
   - startedAt?: Date
   - completedAt?: Date
-- [ ] **Entity: UserSession**
+- [x] **Entity: UserSession**
   - id: string
   - role: UserRole (admin/visitor)
   - code: string
@@ -89,24 +93,24 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
   - createdAt: Date
   - lastUsedAt: Date
   - ipAddress?: string
-- [ ] **Entity: Role**
+- [x] **Entity: Role**
   - ADMIN (código maestro)
   - VISITOR (código de visita)
 
 ## Pendientes — Core Architecture (Services)
-- [ ] **GPUManager**
+- [x] **GPUManager**
   - detectGPU(): Promise<GPUInfo>
   - isGPUSupported(): Promise<boolean>
   - getSupportedModels(): Promise<string[]>
   - getPreferredModel(): Promise<string>
   - isModelCompatible(model: string): Promise<boolean>
-- [ ] **WorkerManager**
+- [x] **WorkerManager**
   - createWorker(type: WorkerType): Promise<Worker>
   - terminateWorker(workerId: string): Promise<void>
   - setWorkerCount(count: number): Promise<void>
   - getWorkerCount(): Promise<number>
   - getWorkerStatus(workerId: string): Promise<WorkerStatus>
-- [ ] **QueueManager**
+- [x] **QueueManager**
   - enqueueJob(job: ProcessingJob): Promise<void>
   - dequeueJob(): Promise<ProcessingJob | null>
   - getQueue(): Promise<ProcessingJob[]>
@@ -114,7 +118,7 @@ Todo el sistema debe ser abstracto (ports/interfaces) con implementaciones base 
   - updateJobStatus(jobId: string, status: JobStatus, error?: string): Promise<void>
   - retryJob(jobId: string): Promise<void>
   - cancelJob(jobId: string): Promise<void>
-- [ ] **AuthManager**
+- [x] **AuthManager**
   - validateMasterCode(code: string): Promise<boolean>
   - validateVisitCode(code: string): Promise<UserSession | null>
   - createVisitSession(code: string): Promise<UserSession>

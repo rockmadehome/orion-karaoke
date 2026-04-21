@@ -1,0 +1,10 @@
+// Main adapters export file
+export { YouTubeAdapter } from './youtube-adapter.adapter'
+export { AudioSeparator, SeparatorType, AudioSeparatorConfig } from './audio-separation.adapter'
+export { LyricsRecognizer, WhisperModel, WhisperConfig } from './lyrics-recognition.adapter'
+export { KaraokeGenerator, KaraokeStyle } from './karaoke-generator.adapter'
+export { PlaybackManager, PlaybackStatus, PlaybackConfig } from './playback.adapter'
+export { PlaylistManager, PlaylistItem, PlaylistOptions } from './playlist.adapter'
+export { AuthCodeAdapter, type AuthCodeConfig } from './auth-code.adapter'
+export { LocalizationManager, Language, TranslationKey, LocalizationConfig } from './localization.adapter'
+export { SQLiteStorageAdapter, type SQLiteStorageConfig } from './storage.adapter'
